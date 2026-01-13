@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Course {
+  id            String    @id @default(uuid())
+  title         String
+  description   String
+  category      String    // ML_BASICS, DEEP_LEARNING, NLP, LLM, AI_TOOLS
+  difficulty    String    // BEGINNER, INTERMEDIATE, ADVANCED
+  estimatedHours Int
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  chapters      Chapter[]
+  pathItems     PathItem[]
+}
+
+model Chapter {
+  id          String   @id @default(uuid())
+  courseId    String
+  title       String
+  order       Int
+  content     String   // Markdown content
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  pathItems   PathItem[]
+}
+
+model LearningPath {
+  id            String     @id @default(uuid())
+  name          String
+  description   String
+  targetAudience String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  pathItems     PathItem[]
+}
+
+model PathItem {
+  id          String        @id @default(uuid())
+  pathId      String
+  courseId    String
+  chapterId   String?
+  order       Int
+  type        String        // 'course' or 'chapter'
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  path        LearningPath  @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  course      Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapter     Chapter?      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+}
+
+model UserProgress {
+  id          String   @id @default(uuid())
+  userId      String   @default("default") // MVP阶段使用默认用户
+  courseId    String
+  chapterId  String?
+  completed  Boolean  @default(false)
+  lastAccessed DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, courseId, chapterId])
+}
