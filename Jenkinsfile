@@ -18,15 +18,76 @@ pipeline {
             }
         }
         
-        stage('Build in Docker') {
+        stage('Build') {
             steps {
                 script {
-                    // 在 Node.js Docker 容器中执行构建
-                    // 需要 Jenkins 安装 Docker Pipeline 插件
-                    def nodeImage = docker.image("node:18")
-                    nodeImage.inside('-v /var/run/docker.sock:/var/run/docker.sock') {
+                    // 先检查 Docker 命令是否可用
+                    def dockerAvailable = false
+                    try {
+                        def dockerCheck = sh(
+                            script: 'command -v docker || docker --version',
+                            returnStatus: true
+                        )
+                        if (dockerCheck == 0) {
+                            dockerAvailable = true
+                            echo "Docker 命令可用"
+                        } else {
+                            echo "Docker 命令不可用，将使用主机构建"
+                        }
+                    } catch (Exception e) {
+                        echo "检查 Docker 时出错: ${e.getMessage()}"
+                        dockerAvailable = false
+                    }
+                    
+                    // 如果 Docker 可用，尝试使用 Docker 构建
+                    if (dockerAvailable) {
+                        try {
+                            def nodeImage = docker.image("node:18")
+                            echo "使用 Docker 容器构建..."
+                            nodeImage.inside('-v /var/run/docker.sock:/var/run/docker.sock') {
+                                sh '''
+                                    echo "在 Docker 容器中构建..."
+                                    echo "Node 版本:"
+                                    node --version
+                                    echo "NPM 版本:"
+                                    npm --version
+                                    
+                                    # 安装依赖
+                                    echo "安装依赖..."
+                                    npm install
+                                    npm run install:all
+                                    
+                                    # 构建前端
+                                    echo "构建前端..."
+                                    npm run build --workspace=frontend
+                                    
+                                    # 构建后端
+                                    echo "构建后端..."
+                                    cd backend
+                                    npm run build
+                                    npm run prisma:generate
+                                    cd ..
+                                '''
+                            }
+                        } catch (Exception e) {
+                            echo "Docker 构建失败，回退到主机构建..."
+                            echo "错误信息: ${e.getMessage()}"
+                            dockerAvailable = false
+                        }
+                    }
+                    
+                    // 如果 Docker 不可用或失败，使用主机构建
+                    if (!dockerAvailable) {
+                        echo "使用主机构建..."
                         sh '''
-                            echo "在 Docker 容器中构建..."
+                            echo "在主机上构建..."
+                            
+                            # 检查 Node.js
+                            if ! command -v node &> /dev/null; then
+                                echo "错误: Node.js 未安装，请安装 Node.js 18+"
+                                exit 1
+                            fi
+                            
                             echo "Node 版本:"
                             node --version
                             echo "NPM 版本:"
