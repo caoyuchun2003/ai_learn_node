@@ -1,16 +1,27 @@
 FROM node:18-alpine
 
+# 安装 OpenSSL（Prisma 需要）
+# Alpine 3.19+ 使用 openssl3，旧版本使用 openssl1.1-compat
+RUN apk add --no-cache openssl libc6-compat || \
+    apk add --no-cache openssl1.1-compat || \
+    apk add --no-cache openssl
+
 WORKDIR /app
 
-# 复制 package 文件
-COPY package*.json ./
-COPY prisma ./prisma/
+# 先复制 shared 包（workspace 依赖）
+COPY shared ./shared
 
-# 安装依赖（包括生产依赖）
-RUN npm ci --production
+# 复制 backend 的 package 文件
+COPY backend/package*.json ./
+COPY backend/prisma ./prisma/
+
+# 安装依赖（shared 包直接使用源码，不需要安装）
+# 修改 package.json 中的 shared 依赖为 file:./shared
+RUN sed -i 's|"@ai-learning/shared": "\*"|"@ai-learning/shared": "file:./shared"|' package.json && \
+    npm install --production
 
 # 复制构建产物
-COPY dist ./dist
+COPY backend/dist ./dist
 
 # 生成 Prisma Client
 RUN npx prisma generate

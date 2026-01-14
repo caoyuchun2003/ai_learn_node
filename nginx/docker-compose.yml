@@ -6,8 +6,8 @@ services:
     image: nginx:alpine
     container_name: ai-learning-nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "8443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ../frontend/dist:/usr/share/nginx/html:ro
@@ -21,8 +21,8 @@ services:
   # 后端服务
   backend:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..  # 使用项目根目录作为构建上下文
+      dockerfile: backend/Dockerfile
     container_name: ai-learning-backend
     ports:
       - "3001:3001"

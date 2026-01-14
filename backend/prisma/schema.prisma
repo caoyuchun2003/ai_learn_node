@@ -21,6 +21,7 @@ model Course {
   updatedAt     DateTime  @updatedAt
   chapters      Chapter[]
   pathItems     PathItem[]
+  userProgress  UserProgress[]
 }
 
 model Chapter {
@@ -33,6 +34,7 @@ model Chapter {
   updatedAt   DateTime @updatedAt
   course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   pathItems   PathItem[]
+  userProgress UserProgress[]
 }
 
 model LearningPath {
@@ -68,6 +70,9 @@ model UserProgress {
   lastAccessed DateTime @default(now())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapter     Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   
   @@unique([userId, courseId, chapterId])
 }
