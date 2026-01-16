@@ -21,94 +21,51 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    // 先检查 Docker 命令是否可用
-                    def dockerAvailable = false
+                    // 定义构建命令（公共部分）
+                    def buildCommands = '''
+                        echo "Node 版本: $(node --version)"
+                        echo "NPM 版本: $(npm --version)"
+                        echo "安装依赖..."
+                        npm install
+                        npm run install:all
+                        echo "构建前端..."
+                        npm run build --workspace=frontend
+                        echo "构建后端..."
+                        cd backend && npm run build && npm run prisma:generate && cd ..
+                    '''
+                    
+                    // 尝试使用 Docker 构建，失败则回退到主机构建
+                    def useDocker = false
                     try {
                         def dockerCheck = sh(
-                            script: 'command -v docker || docker --version',
+                            script: 'command -v docker >/dev/null 2>&1 && docker --version',
                             returnStatus: true
                         )
                         if (dockerCheck == 0) {
-                            dockerAvailable = true
-                            echo "Docker 命令可用"
-                        } else {
-                            echo "Docker 命令不可用，将使用主机构建"
+                            useDocker = true
                         }
                     } catch (Exception e) {
-                        echo "检查 Docker 时出错: ${e.getMessage()}"
-                        dockerAvailable = false
+                        echo "Docker 不可用，使用主机构建"
                     }
                     
-                    // 如果 Docker 可用，尝试使用 Docker 构建
-                    if (dockerAvailable) {
+                    if (useDocker) {
                         try {
-                            def nodeImage = docker.image("node:18")
-                            echo "使用 Docker 容器构建..."
-                            nodeImage.inside('-v /var/run/docker.sock:/var/run/docker.sock') {
-                                sh '''
-                                    echo "在 Docker 容器中构建..."
-                                    echo "Node 版本:"
-                                    node --version
-                                    echo "NPM 版本:"
-                                    npm --version
-                                    
-                                    # 安装依赖
-                                    echo "安装依赖..."
-                                    npm install
-                                    npm run install:all
-                                    
-                                    # 构建前端
-                                    echo "构建前端..."
-                                    npm run build --workspace=frontend
-                                    
-                                    # 构建后端
-                                    echo "构建后端..."
-                                    cd backend
-                                    npm run build
-                                    npm run prisma:generate
-                                    cd ..
-                                '''
+                            docker.image("node:18").inside('-v /var/run/docker.sock:/var/run/docker.sock') {
+                                sh buildCommands
                             }
                         } catch (Exception e) {
-                            echo "Docker 构建失败，回退到主机构建..."
-                            echo "错误信息: ${e.getMessage()}"
-                            dockerAvailable = false
+                            echo "Docker 构建失败，回退到主机构建: ${e.getMessage()}"
+                            useDocker = false
                         }
                     }
                     
-                    // 如果 Docker 不可用或失败，使用主机构建
-                    if (!dockerAvailable) {
-                        echo "使用主机构建..."
+                    if (!useDocker) {
                         sh '''
-                            echo "在主机上构建..."
-                            
-                            # 检查 Node.js
                             if ! command -v node &> /dev/null; then
                                 echo "错误: Node.js 未安装，请安装 Node.js 18+"
                                 exit 1
                             fi
-                            
-                            echo "Node 版本:"
-                            node --version
-                            echo "NPM 版本:"
-                            npm --version
-                            
-                            # 安装依赖
-                            echo "安装依赖..."
-                            npm install
-                            npm run install:all
-                            
-                            # 构建前端
-                            echo "构建前端..."
-                            npm run build --workspace=frontend
-                            
-                            # 构建后端
-                            echo "构建后端..."
-                            cd backend
-                            npm run build
-                            npm run prisma:generate
-                            cd ..
-                        '''
+                        ''' + buildCommands
                     }
                 }
             }
@@ -124,24 +81,18 @@ pipeline {
                     # 复制前端构建产物
                     cp -r frontend/dist deploy-package/frontend-dist
                     
-                    # 复制后端构建产物和必要文件
+                    # 复制后端文件
                     mkdir -p deploy-package/backend
-                    cp -r backend/dist deploy-package/backend/dist
-                    cp -r backend/prisma deploy-package/backend/prisma
-                    cp backend/package.json deploy-package/backend/
+                    cp -r backend/{dist,prisma} deploy-package/backend/
+                    cp backend/{package.json,Dockerfile,entrypoint.sh} deploy-package/backend/ 2>/dev/null || true
                     cp backend/package-lock.json deploy-package/backend/ 2>/dev/null || true
+                    chmod +x deploy-package/backend/entrypoint.sh 2>/dev/null || true
                     
-                    # 复制 Docker 相关文件
+                    # 复制 shared 包和 Docker 配置
+                    [ -d shared ] && cp -r shared deploy-package/
                     mkdir -p deploy-package/docker
-                    cp nginx/docker-compose.production.yml deploy-package/docker/docker-compose.yml
-                    cp nginx/nginx.conf.docker deploy-package/docker/nginx.conf.docker
-                    if [ -f backend/Dockerfile ]; then
-                        cp backend/Dockerfile deploy-package/backend/
-                    fi
-                    
-                    # 复制部署脚本
-                    cp scripts/deploy-docker.sh deploy-package/
-                    chmod +x deploy-package/deploy-docker.sh
+                    cp nginx/{docker-compose.production.yml,nginx.conf.docker} deploy-package/docker/
+                    cp scripts/deploy-docker.sh deploy-package/ && chmod +x deploy-package/deploy-docker.sh
                     
                     # 创建部署包
                     tar -czf deploy-package.tar.gz deploy-package/
@@ -149,93 +100,36 @@ pipeline {
             }
         }
         
-        stage('Deploy to Remote Server') {
+        stage('Deploy') {
             steps {
                 echo '部署到远程服务器...'
-                script {
-                    // 使用 SSH 传输文件并执行部署
-                    sh '''
-                        # 传输部署包到远程服务器
-                        scp -o StrictHostKeyChecking=no deploy-package.tar.gz ${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/
-                        
-                        # 在远程服务器上执行部署
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} << 'ENDSSH'
-                            # 创建部署目录
-                            mkdir -p /opt/nginx/html/ai
-            
-                            # 解压部署包
-                            cd /tmp
-                            tar -xzf deploy-package.tar.gz
-            
-                            # 备份旧版本（如果存在）
-                            if [ -d /opt/nginx/html/ai/current ]; then
-                                mv /opt/nginx/html/ai/current /opt/nginx/html/ai/backup-$(date +%Y%m%d-%H%M%S)
-                            fi
-            
-                            # 创建新版本目录
-                            mkdir -p /opt/nginx/html/ai/current
-            
-                            # 复制前端文件
-                            cp -r deploy-package/frontend-dist/* /opt/nginx/html/ai/current/
-            
-                            # 复制后端文件
-                            mkdir -p /opt/nginx/html/ai/current/backend
-                            cp -r deploy-package/backend/* /opt/nginx/html/ai/current/backend/
-                            
-                            # 复制 Docker 配置文件
-                            mkdir -p /opt/nginx/html/ai/current/docker
-                            cp deploy-package/docker/docker-compose.yml /opt/nginx/html/ai/current/docker/
-                            cp deploy-package/docker/nginx.conf.docker /opt/nginx/html/ai/current/docker/
-                            
-                            # 创建 nginx logs 目录
-                            mkdir -p /opt/nginx/html/ai/current/docker/logs
-            
-                            # 执行 Docker 部署脚本
-                            if [ -f deploy-package/deploy-docker.sh ]; then
-                                chmod +x deploy-package/deploy-docker.sh
-                                bash deploy-package/deploy-docker.sh /opt/nginx/html/ai/current
-                            fi
-            
-                            # 清理临时文件
-                            rm -rf /tmp/deploy-package /tmp/deploy-package.tar.gz
-            
-                            echo "部署完成！"
-                        ENDSSH
-                    '''
-                }
-            }
-        }
-        
-        stage('Restart Services') {
-            steps {
-                echo '重启 Docker 服务...'
                 sh '''
+                    # 传输部署包
+                    scp -o StrictHostKeyChecking=no deploy-package.tar.gz ${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/
+                    
+                    # 在远程服务器上执行部署（deploy-docker.sh 已包含重启服务逻辑）
                     ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} << 'ENDSSH'
-                        # 使用 Docker Compose 重启服务
-                        cd /opt/nginx/html/ai/current/docker
+                        set -e
+                        mkdir -p /opt/nginx/html/ai
+                        cd /tmp && tar -xzf deploy-package.tar.gz
                         
-                        # 检查 docker-compose 命令（支持新版本的 docker compose）
-                        if command -v docker-compose &> /dev/null; then
-                            COMPOSE_CMD="docker-compose"
-                        else
-                            COMPOSE_CMD="docker compose"
-                        fi
+                        # 备份旧版本
+                        [ -d /opt/nginx/html/ai/current ] && \
+                            mv /opt/nginx/html/ai/current /opt/nginx/html/ai/backup-$(date +%Y%m%d-%H%M%S)
                         
-                        # 停止旧容器
-                        $COMPOSE_CMD down || true
+                        # 创建新版本目录并复制文件
+                        mkdir -p /opt/nginx/html/ai/current/{backend,docker/logs}
+                        cp -r deploy-package/frontend-dist/* /opt/nginx/html/ai/current/
+                        cp -r deploy-package/backend/* /opt/nginx/html/ai/current/backend/
+                        [ -d deploy-package/shared ] && cp -r deploy-package/shared /opt/nginx/html/ai/current/
+                        cp deploy-package/docker/* /opt/nginx/html/ai/current/docker/
                         
-                        # 重新构建并启动
-                        $COMPOSE_CMD up -d --build
+                        # 执行部署脚本（包含停止、构建、启动和健康检查）
+                        chmod +x deploy-package/deploy-docker.sh
+                        bash deploy-package/deploy-docker.sh /opt/nginx/html/ai/current
                         
-                        # 等待服务启动
-                        sleep 5
-                        
-                        # 检查服务状态
-                        $COMPOSE_CMD ps
-                        
-                        echo "Docker 服务已重启"
-                        echo "前端访问: http://180.76.180.105:8080"
-                        echo "后端 API: http://180.76.180.105:3001"
+                        # 清理临时文件
+                        rm -rf /tmp/deploy-package /tmp/deploy-package.tar.gz
                     ENDSSH
                 '''
             }

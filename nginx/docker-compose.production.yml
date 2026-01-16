@@ -21,8 +21,8 @@ services:
   # 后端服务
   backend:
     build:
-      context: /opt/nginx/html/ai/current/backend
-      dockerfile: Dockerfile
+      context: /opt/nginx/html/ai/current  # 使用项目根目录作为构建上下文（需要访问 shared 目录）
+      dockerfile: backend/Dockerfile
     container_name: ai-learning-backend
     ports:
       - "3001:3001"

@@ -20,14 +20,21 @@ COPY backend/prisma ./prisma/
 RUN sed -i 's|"@ai-learning/shared": "\*"|"@ai-learning/shared": "file:./shared"|' package.json && \
     npm install --production
 
+# 安装 tsx（用于执行 seed.ts）
+RUN npm install -g tsx || npm install tsx --save-dev || true
+
 # 复制构建产物
 COPY backend/dist ./dist
 
-# 生成 Prisma Client
+# 复制并设置 entrypoint 脚本
+COPY backend/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# 生成 Prisma Client（在构建时生成，启动时也会重新生成以确保最新）
 RUN npx prisma generate
 
 # 暴露端口
 EXPOSE 3001
 
-# 启动应用
-CMD ["node", "dist/index.js"]
+# 使用 entrypoint 脚本启动（会自动执行数据库迁移）
+CMD ["/app/entrypoint.sh"]
