@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Docker 部署脚本 - 在远程服务器上执行
+# Docker/Podman 部署脚本 - 在远程服务器上执行
 # 用法: ./deploy-docker.sh <部署目录>
 
 set -e
@@ -8,7 +8,7 @@ set -e
 DEPLOY_DIR=${1:-/opt/nginx/html/ai/current}
 DOCKER_DIR="$DEPLOY_DIR/docker"
 
-echo "开始 Docker 部署到: $DEPLOY_DIR"
+echo "开始容器部署到: $DEPLOY_DIR"
 
 # 检查部署目录是否存在
 if [ ! -d "$DEPLOY_DIR" ]; then
@@ -16,22 +16,46 @@ if [ ! -d "$DEPLOY_DIR" ]; then
     exit 1
 fi
 
-# 检查 Docker 是否安装
-if ! command -v docker &> /dev/null; then
-    echo "错误: Docker 未安装"
+# 检测容器运行时（优先使用 Podman，然后是 Docker）
+CONTAINER_CMD=""
+COMPOSE_CMD=""
+
+if command -v podman &> /dev/null; then
+    CONTAINER_CMD="podman"
+    echo "检测到 Podman"
+    
+    # 检查 podman-compose 或 podman compose
+    if command -v podman-compose &> /dev/null; then
+        COMPOSE_CMD="podman-compose"
+    elif podman compose version &> /dev/null 2>&1; then
+        COMPOSE_CMD="podman compose"
+    else
+        echo "错误: podman-compose 未安装"
+        echo "提示: 请安装 podman-compose 或 podman-compose 插件"
+        echo "安装方法: pip install podman-compose 或 dnf install podman-compose"
+        exit 1
+    fi
+elif command -v docker &> /dev/null; then
+    CONTAINER_CMD="docker"
+    echo "检测到 Docker"
+    
+    # 检查 docker-compose 或 docker compose
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_CMD="docker-compose"
+    elif docker compose version &> /dev/null 2>&1; then
+        COMPOSE_CMD="docker compose"
+    else
+        echo "错误: docker-compose 未安装"
+        echo "提示: 请安装 docker-compose 或确保 Docker 版本 >= 20.10"
+        exit 1
+    fi
+else
+    echo "错误: 未找到 Podman 或 Docker"
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    echo "错误: docker-compose 未安装"
-    exit 1
-fi
-
-# 检查 docker-compose 命令（支持新版本的 docker compose）
-COMPOSE_CMD="docker-compose"
-if ! command -v docker-compose &> /dev/null; then
-    COMPOSE_CMD="docker compose"
-fi
+echo "使用容器命令: $CONTAINER_CMD"
+echo "使用 Compose 命令: $COMPOSE_CMD"
 
 # 进入 Docker 目录
 if [ ! -d "$DOCKER_DIR" ]; then
@@ -46,7 +70,7 @@ echo "停止旧容器..."
 $COMPOSE_CMD down || true
 
 # 构建并启动服务
-echo "构建并启动 Docker 服务..."
+echo "构建并启动容器服务..."
 $COMPOSE_CMD up -d --build
 
 # 等待服务启动
@@ -59,14 +83,14 @@ $COMPOSE_CMD ps
 
 # 检查容器健康状态
 echo "检查容器健康状态..."
-if docker ps | grep -q ai-learning-nginx; then
+if $CONTAINER_CMD ps | grep -q ai-learning-nginx; then
     echo "✅ Nginx 容器运行中"
 else
     echo "❌ Nginx 容器未运行"
     exit 1
 fi
 
-if docker ps | grep -q ai-learning-backend; then
+if $CONTAINER_CMD ps | grep -q ai-learning-backend; then
     echo "✅ Backend 容器运行中"
 else
     echo "❌ Backend 容器未运行"
@@ -75,7 +99,7 @@ fi
 
 echo ""
 echo "=========================================="
-echo "Docker 部署完成！"
+echo "容器部署完成！"
 echo "=========================================="
 echo "前端访问: http://180.76.180.105:8080"
 echo "后端 API: http://180.76.180.105:3001"
