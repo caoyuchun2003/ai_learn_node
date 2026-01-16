@@ -61,8 +61,10 @@ pipeline {
                     # 构建后端
                     echo "构建后端..."
                     cd backend
-                    npm run build
+                    # 先生成 Prisma Client（构建时需要类型）
                     npm run prisma:generate
+                    # 然后构建 TypeScript
+                    npm run build
                     cd ..
                 '''
             }

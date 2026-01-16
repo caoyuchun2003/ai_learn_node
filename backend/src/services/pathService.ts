@@ -1,12 +1,12 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { CourseCategory, Difficulty } from '@ai-learning/shared';
 
 const prisma = new PrismaClient();
 
 // 定义包含 chapters 的 Course 类型
-type CourseWithChapters = Prisma.CourseGetPayload<{
+type CourseWithChapters = Awaited<ReturnType<typeof prisma.course.findMany<{
   include: { chapters: true };
-}>;
+}>>>[0];
 
 // 课程依赖关系映射
 const courseDependencies: Record<string, string[]> = {
@@ -122,7 +122,7 @@ export async function generateLearningPath(
             type: 'course',
           });
           // 添加章节节点
-          course.chapters.forEach((chapter, chapterIndex: number) => {
+          course.chapters.forEach((chapter: { id: string }, chapterIndex: number) => {
             items.push({
               courseId: course.id,
               chapterId: chapter.id,
