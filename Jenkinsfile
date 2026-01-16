@@ -35,8 +35,12 @@ pipeline {
                     # 使用 Node.js 22
                     nvm use 22 2>/dev/null || nvm use default || true
                     
-                    # 检查 Node.js
-                    if ! command -v node &> /dev/null; then
+                    # 确保 PATH 包含 nvm 的 node 路径
+                    NVM_NODE_VERSION=$(nvm version 2>/dev/null || echo "v22.22.0")
+                    export PATH="$NVM_DIR/versions/node/$NVM_NODE_VERSION/bin:$PATH"
+                    
+                    # 检查 Node.js（直接检查文件是否存在）
+                    if [ ! -f "$NVM_DIR/versions/node/$NVM_NODE_VERSION/bin/node" ]; then
                         echo "错误: Node.js 未安装，请安装 Node.js 22+"
                         echo "提示: 如果使用 nvm，请确保已安装: nvm install 22"
                         exit 1
