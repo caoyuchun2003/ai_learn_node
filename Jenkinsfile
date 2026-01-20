@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     tools {
-        nodejs '22'
-    }
+        nodejs 'NodeJS-22'
+    } 
     environment {
         // 远程服务器配置
         DEPLOY_HOST = '180.76.180.105'
