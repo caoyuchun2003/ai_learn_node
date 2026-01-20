@@ -24,10 +24,17 @@ pipeline {
         stage('Test Node.js') {
             steps {
                 echo '测试 Node.js 环境...'
+                script {
+                    // 使用 tool 指令确保 Node.js 在 PATH 中
+                    def nodejs = tool name: 'NodeJS-22', type: 'hudson.plugins.nodejs.tools.NodeJSInstallation'
+                    env.PATH = "${nodejs}/bin:${env.PATH}"
+                }
                 sh '''
                     # 检查 Node.js 是否安装
                     if ! command -v node &> /dev/null; then
                         echo "❌ 错误: Node.js 未安装，请安装 Node.js 22+"
+                        echo "检查常见路径..."
+                        ls -la /var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/NodeJS-22/bin/ 2>/dev/null || true
                         exit 1
                     fi
                     
