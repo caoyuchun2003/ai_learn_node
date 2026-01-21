@@ -22,17 +22,14 @@ pipeline {
             steps {
                 echo '构建项目...'
                 sh '''
-                    # 使用全局配置的 Node.js 路径
-                    JENKINS_NODE_PATH="/var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/NodeJS-22/bin"
-                    
-                    if [ -f "$JENKINS_NODE_PATH/node" ]; then
-                        echo "✅ 使用全局配置的 Node.js: $JENKINS_NODE_PATH"
-                        export PATH="$JENKINS_NODE_PATH:$PATH"
-                    else
-                        echo "❌ 错误: Node.js 未找到，请检查全局工具配置"
+                    # 直接使用 Jenkins 全局环境中的 Node.js
+                    if ! command -v node >/dev/null 2>&1; then
+                        echo "❌ 错误: 没有在 PATH 中找到 node 命令"
+                        echo "请确认 Jenkins 节点上已经安装并全局可用的 Node.js（例如通过 nvm 或系统包安装），"
+                        echo "并且 Jenkins 构建环境已经正确加载了对应的环境变量。"
                         exit 1
                     fi
-                    
+
                     echo "Node 版本: $(node --version)"
                     echo "NPM 版本: $(npm --version)"
                     echo "Node 路径: $(which node)"
