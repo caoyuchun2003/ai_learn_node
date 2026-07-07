@@ -1,10 +1,6 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, Outlet } from 'react-router-dom';
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-export default function Layout({ children }: LayoutProps) {
+export default function Layout() {
   const location = useLocation();
 
   const isActive = (path: string) => {
@@ -62,7 +58,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1">
-        {children}
+        <Outlet />
       </main>
 
       {/* Footer */}

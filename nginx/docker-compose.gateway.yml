@@ -1,0 +1,19 @@
+version: '3.8'
+
+# 统一网关模式：仅运行后端，由主 Nginx :80 的 /ai/api/ 转发
+services:
+  backend:
+    build:
+      context: /opt/apps/ai-learning
+      dockerfile: backend/Dockerfile
+    container_name: ai-learning-backend
+    ports:
+      - "13001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=file:./prisma/dev.db
+    volumes:
+      - /opt/apps/ai-learning/backend/prisma:/app/prisma
+      - /opt/apps/ai-learning/backend/dist:/app/dist:ro
+    restart: unless-stopped

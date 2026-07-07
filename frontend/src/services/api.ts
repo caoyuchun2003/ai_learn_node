@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { Course, Chapter, LearningPath, UserProgress, GeneratePathRequest } from '@ai-learning/shared';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: '/ai/api',
   headers: {
     'Content-Type': 'application/json',
   },
