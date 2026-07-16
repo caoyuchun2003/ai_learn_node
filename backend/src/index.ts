@@ -13,6 +13,7 @@ const defaultOrigins = [
   'http://127.0.0.1:3000',
   'http://180.76.180.105',
   'https://caoyuchun2003.github.io',
+  'https://ai.yuchuntest.com',
 ];
 
 const allowedOrigins = process.env.CORS_ORIGINS

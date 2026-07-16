@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: BCE::Serverless-2018-10-31
+Description: AI Learn HTTPS proxy — Pages to BCC via CFC
+
+Resources:
+  AiLearnProxyFunction:
+    Type: BCE::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs12
+      CodeUri: ./
+      Description: Proxy /ai/api to Baidu BCC HTTP
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          UPSTREAM_BASE: 'http://180.76.180.105'
+          CORS_ORIGINS: 'https://ai.yuchuntest.com,https://caoyuchun2003.github.io,http://localhost:3000'
+      Events:
+        RootHttp:
+          Type: HTTP
+          Properties:
+            ResourcePath: /
+            Method:
+              - GET
+              - OPTIONS
+            AuthType: anonymous
+        ApiRootHttp:
+          Type: HTTP
+          Properties:
+            ResourcePath: /ai/api
+            Method:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            AuthType: anonymous
+        ApiProxyHttp:
+          Type: HTTP
+          Properties:
+            ResourcePath: /ai/api/{proxy+}
+            Method:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            AuthType: anonymous

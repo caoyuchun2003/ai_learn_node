@@ -1,65 +1,72 @@
-# GitHub Pages 前端 + 百度云后端（方案 A）
+# GitHub Pages 前端 + 百度云后端（方案 A）+ CFC HTTPS 代理
 
 ## 架构
 
 ```text
 浏览器
   ├─ 静态前端 → GitHub Pages
-  │              https://caoyuchun2003.github.io/ai_learn_node/
+  │              https://ai.yuchuntest.com/
   │
-  └─ JSON API → 百度云（Node + SQLite）
-                 http://180.76.180.105/ai/api/
-                 （或 HTTPS 代理 / 域名）
+  └─ JSON API → 百度 CFC（HTTPS，免备案）
+                 https://xxxx.cfc-execute.bj.baidubce.com/ai/api/
+                      │
+                      └─ HTTP → http://180.76.180.105/ai/api/
 ```
 
 | 层 | 部署位置 |
 |----|----------|
-| React 前端 | GitHub Pages（本仓库 Actions） |
-| Express + Prisma + SQLite | 百度云 Docker（Jenkins / deploy-docker.sh） |
+| React 前端 | GitHub Pages |
+| HTTPS 入口 | 百度 CFC（`functions/`） |
+| Express + SQLite | 百度云 Docker |
+
+详见：[functions/README.md](./functions/README.md)
 
 ---
 
-## 一、GitHub Pages 配置
-
-### 1. 开启 Pages
-
-仓库 **Settings → Pages → Build and deployment → Source: GitHub Actions**
-
-### 2. 配置 Secret
-
-**Settings → Secrets → Actions** 新增：
-
-| Secret | 示例 | 说明 |
-|--------|------|------|
-| `VITE_AI_API_BASE` | `https://你的HTTPS域名/ai/api` 或 CFC 代理 URL | **必须是 HTTPS**，否则 Pages 会拦截混合内容 |
-
-> 若 API 仍是 `http://180.76.180.105/ai/api`，浏览器从 HTTPS Pages **无法直接调用**。可选：
-> - 给百度云 API 配域名 + SSL
-> - 用百度 CFC 做 HTTPS 反向代理（参考 learn 项目的 CFC 方案）
-
-### 3. 推送 main 触发部署
+## 一、部署 CFC 代理（必须先做）
 
 ```bash
-git push origin main
+cd functions
+chmod +x scripts/*.sh
+./scripts/deploy.sh
 ```
 
-访问：`https://ai.yuchuntest.com/`（自定义域，构建 `VITE_BASE=/`）
+控制台复制 HTTP 触发器根地址后：
 
-旧项目页地址 `https://caoyuchun2003.github.io/ai_learn_node/` 会 301 跳到自定义域。
+```bash
+./scripts/set-github-secret.sh 'https://xxxx.cfc-execute.bj.baidubce.com'
+gh workflow run 'Deploy frontend to GitHub Pages' --repo caoyuchun2003/ai_learn_node
+```
+
+### GitHub Secret
+
+| Secret | 值 |
+|--------|-----|
+| `VITE_AI_API_BASE` | `https://xxxx.cfc-execute.bj.baidubce.com/ai/api`（无尾斜杠） |
+
+探活：
+
+```bash
+curl -s 'https://xxxx.cfc-execute.bj.baidubce.com/ai/api/health'
+```
 
 ---
 
-## 二、百度云后端（保持不变）
+## 二、GitHub Pages
 
-Jenkins 或手动执行 `scripts/deploy-docker.sh`，只部署 **backend 容器**（端口 13001，主 nginx 转发 `/ai/api/`）。
+仓库 **Settings → Pages → Source: GitHub Actions**
 
-后端环境变量（docker-compose.gateway.yml）：
+访问：`https://ai.yuchuntest.com/`
+
+---
+
+## 三、百度云后端
+
+Jenkins / `scripts/deploy-docker.sh` 只部署 backend。
 
 ```env
-CORS_ORIGINS=https://caoyuchun2003.github.io,http://180.76.180.105,http://localhost:3000
+CORS_ORIGINS=...,https://ai.yuchuntest.com,...
 ```
-
-健康检查：
 
 ```bash
 curl http://180.76.180.105/ai/api/health
@@ -67,31 +74,32 @@ curl http://180.76.180.105/ai/api/health
 
 ---
 
-## 三、本地开发
+## 四、本地开发
 
 ```bash
 npm install && npm run install:all
-cd backend && npm run setup:db   # 首次
-npm run dev                      # 前端 :3000 + 后端 :3001
+cd backend && npm run setup:db
+npm run dev
 ```
 
-前端默认直连 `http://localhost:3001/api`，无需 nginx。
+前端默认 `http://localhost:3001/api`。
 
 ---
 
-## 四、构建变量说明
+## 五、构建变量
 
-| 变量 | 自定义域 `ai.yuchuntest.com` | 百度云 /ai/ |
-|------|------------------------------|---------------|
+| 变量 | `ai.yuchuntest.com` | 百度云同机 /ai/ |
+|------|---------------------|-----------------|
 | `VITE_BASE` | `/` | `/ai/` |
 | `VITE_ROUTER_BASE` | `/` | `/ai` |
-| `VITE_API_BASE` | Secret（HTTPS 外链） | 可不设（同源 `/ai/api`） |
+| `VITE_API_BASE` | CFC HTTPS `/ai/api` | 可不设 |
 
 ---
 
-## 五、迁移检查清单
+## 六、检查清单
 
-- [ ] GitHub Secret `VITE_AI_API_BASE` 已设为 **HTTPS** API 根路径（含 `/ai/api`，无尾斜杠）
-- [ ] 百度云 `CORS_ORIGINS` 含 `https://caoyuchun2003.github.io`
-- [ ] `curl .../ai/api/health` 正常
-- [ ] Pages Actions 绿，站点可打开课程列表
+- [ ] CFC 已部署，`/ai/api/health` 返回 ok
+- [ ] Secret `VITE_AI_API_BASE` 已设
+- [ ] Pages Actions 成功
+- [ ] 打开 https://ai.yuchuntest.com 能加载课程
+- [ ] BCC 安全组允许 CFC 访问 80
