@@ -43,7 +43,9 @@
 git push origin main
 ```
 
-访问：`https://caoyuchun2003.github.io/ai_learn_node/`
+访问：`https://ai.yuchuntest.com/`（自定义域，构建 `VITE_BASE=/`）
+
+旧项目页地址 `https://caoyuchun2003.github.io/ai_learn_node/` 会 301 跳到自定义域。
 
 ---
 
@@ -79,10 +81,10 @@ npm run dev                      # 前端 :3000 + 后端 :3001
 
 ## 四、构建变量说明
 
-| 变量 | Pages 构建 | 百度云 /ai/ 构建 |
-|------|------------|------------------|
-| `VITE_BASE` | `/ai_learn_node/` | `/ai/` |
-| `VITE_ROUTER_BASE` | `/ai_learn_node` | `/ai` |
+| 变量 | 自定义域 `ai.yuchuntest.com` | 百度云 /ai/ |
+|------|------------------------------|---------------|
+| `VITE_BASE` | `/` | `/ai/` |
+| `VITE_ROUTER_BASE` | `/` | `/ai` |
 | `VITE_API_BASE` | Secret（HTTPS 外链） | 可不设（同源 `/ai/api`） |
 
 ---

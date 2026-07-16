@@ -36,10 +36,10 @@ jobs:
 
       - name: Build frontend
         env:
-          # GitHub Project Pages: https://caoyuchun2003.github.io/ai_learn_node/
-          VITE_BASE: /ai_learn_node/
-          VITE_ROUTER_BASE: /ai_learn_node
-          # 必填：HTTPS API 地址（百度云 /ai/api/ 或 CFC 代理 URL）
+          # 自定义域 ai.yuchuntest.com 从根路径提供，勿用 /ai_learn_node/
+          VITE_BASE: /
+          VITE_ROUTER_BASE: /
+          # HTTPS API（百度云 /ai/api/ 或 CFC 代理）；未配置时构建仍成功，但数据请求会失败
           VITE_API_BASE: ${{ secrets.VITE_AI_API_BASE }}
         run: npm run build --workspace=frontend
 
