@@ -149,8 +149,19 @@ npm run prisma:seed
 ## 构建生产版本
 
 ```bash
-npm run build
+# 前端（GitHub Pages）
+npm run build --workspace=frontend
+
+# 后端（百度云 Docker）
+npm run build --workspace=backend
 ```
+
+### 部署方式
+
+| 组件 | 部署目标 | 文档 |
+|------|----------|------|
+| 前端 | GitHub Pages | [DEPLOY_PAGES.md](./DEPLOY_PAGES.md) |
+| 后端 API | 百度云 Docker | [DOCKER_DEPLOY.md](./DOCKER_DEPLOY.md) |
 
 ## 许可证
 

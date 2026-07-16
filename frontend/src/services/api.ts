@@ -1,8 +1,15 @@
 import axios from 'axios';
 import type { Course, Chapter, LearningPath, UserProgress, GeneratePathRequest } from '@ai-learning/shared';
 
+function resolveApiBase(): string {
+  const configured = import.meta.env.VITE_API_BASE?.replace(/\/$/, '');
+  if (configured) return configured;
+  if (import.meta.env.DEV) return 'http://localhost:3001/api';
+  return '/ai/api';
+}
+
 const api = axios.create({
-  baseURL: '/ai/api',
+  baseURL: resolveApiBase(),
   headers: {
     'Content-Type': 'application/json',
   },

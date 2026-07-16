@@ -9,10 +9,16 @@ import LearningPathPage from './pages/LearningPathPage';
 import PathDetailPage from './pages/PathDetailPage';
 import LoginPage from './pages/LoginPage';
 
+function routerBasename(): string {
+  const raw = import.meta.env.VITE_ROUTER_BASE || import.meta.env.VITE_BASE || '/ai';
+  const trimmed = raw.replace(/\/$/, '');
+  return trimmed || '/';
+}
+
 function App() {
   return (
     <ErrorBoundary>
-      <Router basename="/ai">
+      <Router basename={routerBasename()}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<Layout />}>

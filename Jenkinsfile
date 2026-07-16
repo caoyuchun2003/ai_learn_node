@@ -21,12 +21,10 @@ pipeline {
                 sh '''
                     docker run --rm \
                         -v "$PWD:/app" -w /app \
-                        -e VITE_BASE=/ai/ \
                         ${NODE_IMAGE} sh -c "
                             set -e
                             npm install
                             npm run install:all
-                            npm run build --workspace=frontend
                             cd backend
                             npm run prisma:generate
                             npm run build
@@ -39,9 +37,7 @@ pipeline {
             steps {
                 sh '''
                     rm -rf deploy-package deploy-package.tar.gz
-                    mkdir -p deploy-package/static deploy-package/backend deploy-package/docker
-
-                    cp -r frontend/dist/. deploy-package/static/
+                    mkdir -p deploy-package/backend deploy-package/docker
 
                     cp -r backend/dist deploy-package/backend/ 2>/dev/null || true
                     cp -r backend/prisma deploy-package/backend/ 2>/dev/null || true
@@ -73,9 +69,8 @@ pipeline {
                         set -e
                         cd /tmp && tar -xzf deploy-package.tar.gz
 
-                        mkdir -p /opt/apps/ai-learning/backend /opt/apps/ai-learning/docker /opt/nginx/html/ai
-                        rm -rf /opt/apps/ai-learning/backend/* /opt/nginx/html/ai/*
-                        cp -r deploy-package/static/. /opt/nginx/html/ai/
+                        mkdir -p /opt/apps/ai-learning/backend /opt/apps/ai-learning/docker
+                        rm -rf /opt/apps/ai-learning/backend/*
                         cp -r deploy-package/backend/* /opt/apps/ai-learning/backend/
                         if [ -d deploy-package/shared ]; then
                             cp -r deploy-package/shared /opt/apps/ai-learning/
@@ -97,9 +92,10 @@ ENDSSH
     post {
         success {
             echo '========================================'
-            echo '✅ AI 学习系统部署成功'
-            echo '前端: http://180.76.180.105/ai/'
+            echo '✅ AI 学习系统后端部署成功'
+            echo '前端: GitHub Pages → https://caoyuchun2003.github.io/ai_learn_node/'
             echo 'API:  http://180.76.180.105/ai/api/'
+            echo '详见 DEPLOY_PAGES.md'
             echo '========================================'
         }
         failure {
